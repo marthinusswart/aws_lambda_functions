@@ -1,12 +1,13 @@
 import json
 import boto3
 import time
+
 region = "ap-southeast-2"
 ami_id = "ami-070c0274040e9b3f2"
 ec2 = boto3.client("ec2", region_name=region)
 key_pair = "theswartsfamily"
 s3_bucket = "aws-applications-and-services"
-server_details_key = "aws-applications-and-services/bankstatement_processor/running_servers.json"
+server_details_key = "bankstatement_processor/running_servers.json"
 
 def start_spot_instance() -> dict:
 
@@ -56,19 +57,25 @@ def set_server_name(instance_id: str, server_name: str) -> None:
     ec2.create_tags(Resources=[instance_id],Tags=[{"Key": "Name", "Value": server_name}])
 
 def store_server_details(instance_id: str) -> None:
-    session = boto3.Session()
-    s3 = session.client("s3")
-    credentials = session.get_credentials()
-    print(credentials)
-    response = bucket = s3.get_object(Bucket=s3_bucket, Key=server_details_key)
-    print(response)
+    s3 = boto3.client("s3")    
+    response = s3.get_object(Bucket=s3_bucket, Key=server_details_key)
+    running_servers_json = json.loads(response["Body"].read())
+    instance_count = running_servers_json["InstanceCount"]
+    server_instances = running_servers_json["Instances"]
+
+    print("Current running count {}".format(instance_count))
+    print("All instances {}".format(server_instances))
+
+    for instance in server_instances:
+        print("Instance Id: {}".format(instance["InstanceId"]))
+    
 
 def server_initialise() -> None:
     request_data = start_bankstatement_processor_server()
     spot_instance_request_id = request_data["SpotInstanceRequestId"]
     instance_id = wait_for_instance_to_initialise(spot_instance_request_id)
     set_server_name(instance_id, "Bankstatement Processor Server")
-    store_server_details(instance_id)
+    store_server_details(instance_id)    
 
 def lambda_local_run() -> None:
     server_initialise()
