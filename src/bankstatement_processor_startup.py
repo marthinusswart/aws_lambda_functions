@@ -1,6 +1,7 @@
 import json
 import boto3
 import time
+import datetime
 
 region = "ap-southeast-2"
 ami_id = "ami-070c0274040e9b3f2"
@@ -65,7 +66,8 @@ def store_server_details(instance_id: str, spot_instance_request_id: str) -> Non
     server_instances: list = running_servers_json["Instances"]
 
     instance_count += 1
-    server_details: dict = {"InstanceId":instance_id, "SpotInstanceRequestId":spot_instance_request_id}
+    current_timestamp = datetime.datetime.now().timestamp()
+    server_details: dict = {"InstanceId":instance_id, "SpotInstanceRequestId":spot_instance_request_id, "StartTime":current_timestamp, "LastUpdateTime":current_timestamp}
     server_instances.append(server_details)
     running_servers_json["InstanceCount"] = instance_count
     
