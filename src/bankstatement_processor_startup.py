@@ -56,26 +56,27 @@ def wait_for_instance_to_initialise(spot_instance_request_id) -> str:
 def set_server_name(instance_id: str, server_name: str) -> None:
     ec2.create_tags(Resources=[instance_id],Tags=[{"Key": "Name", "Value": server_name}])
 
-def store_server_details(instance_id: str) -> None:
+def store_server_details(instance_id: str, spot_instance_request_id: str) -> None:
     s3 = boto3.client("s3")    
     response = s3.get_object(Bucket=s3_bucket, Key=server_details_key)
-    running_servers_json = json.loads(response["Body"].read())
+    running_servers_json = json.loads(response["Body"].read())    
+
     instance_count = running_servers_json["InstanceCount"]
-    server_instances = running_servers_json["Instances"]
+    server_instances: list = running_servers_json["Instances"]
 
-    print("Current running count {}".format(instance_count))
-    print("All instances {}".format(server_instances))
-
-    for instance in server_instances:
-        print("Instance Id: {}".format(instance["InstanceId"]))
+    instance_count += 1
+    server_details: dict = {"InstanceId":instance_id, "SpotInstanceRequestId":spot_instance_request_id}
+    server_instances.append(server_details)
+    running_servers_json["InstanceCount"] = instance_count
     
+    s3.put_object(Body=json.dumps(running_servers_json), Bucket=s3_bucket, Key=server_details_key)    
 
 def server_initialise() -> None:
     request_data = start_bankstatement_processor_server()
     spot_instance_request_id = request_data["SpotInstanceRequestId"]
     instance_id = wait_for_instance_to_initialise(spot_instance_request_id)
     set_server_name(instance_id, "Bankstatement Processor Server")
-    store_server_details(instance_id)    
+    store_server_details(instance_id, spot_instance_request_id)
 
 def lambda_local_run() -> None:
     server_initialise()
